@@ -1,0 +1,573 @@
+TCP SERVER-ONE WAY
+#include<sys/socket.h>
+#include<netinet/in.h>
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
+#include<unistd.h>
+
+int main() {
+	char buf[100];
+ int k, i=0, len;
+	int sock_desc, temp_sock_desc;
+	struct sockaddr_in server, client;
+	sock_desc = socket(AF_INET, SOCK_STREAM, 0);
+
+	if(sock_desc == -1) 
+printf("Error in socket creation");
+
+	server.sin_family = AF_INET;
+	//server.sin_addr.s_addr = inet_addr("127.0.0.1");
+	server.sin_addr.s_addr = INADDR_ANY;
+	server.sin_port = htons(3003);
+	
+	k = bind(sock_desc, (struct sockaddr*)&server, sizeof(server));
+	if(k == -1) 
+printf("Error in binding");
+	k = listen(sock_desc, 1);
+	if(k == -1) 
+printf("Error in listening");
+		
+	len = sizeof(client);
+	temp_sock_desc = accept(sock_desc, (struct sockaddr*)&client, &len);
+
+	if(temp_sock_desc == -1) 
+printf("Error in temporary socket creation");
+		
+	k = recv(temp_sock_desc, buf, 100, 0);
+	if(k == -1) 
+printf("Error in receiving");
+			
+	printf("Message got from client is : %s \n", buf);
+	close(temp_sock_desc);
+	return 0;
+}
+
+TCP CLIENT-ONEWAY
+#include<sys/socket.h>
+#include<netinet/in.h>
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
+#include<unistd.h>
+
+int main() {
+	char buf[100]; int k, sock_desc;
+	struct sockaddr_in client;
+	sock_desc = socket(AF_INET, SOCK_STREAM, 0);
+	if(sock_desc == -1) 
+printf("Error in socket creation");
+
+	client.sin_family = AF_INET;
+	client.sin_addr.s_addr = inet_addr("127.0.0.1");
+	//client.sin_addr.s_addr = INADDR_ANY;
+	client.sin_port = htons(3003);
+
+	k = connect(sock_desc, (struct sockaddr*)&client, sizeof(client));
+	if(k == -1) 
+printf("Error in connecting to server");
+
+	printf("Enter data to be sent : ");
+	fgets(buf, 100, stdin);
+	k = send(sock_desc, buf, 100, 0);
+	close(sock_desc);
+	return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+UDP ONEWAY CLIENT
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+
+int main() {
+    char buf[1000];
+    int k;
+    int sock_desc;
+    struct sockaddr_in client;
+    sock_desc = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock_desc < 0) 
+    {
+        perror("Error in socket creation");
+        exit(1);
+    }
+    client.sin_family = AF_INET;
+    if (inet_pton(AF_INET, "127.0.0.1", &client.sin_addr) <= 0) 
+    {
+        perror("Invalid address");
+        exit(1);
+    }
+    client.sin_port = htons(3003);
+    printf("\nEnter data to be sent: ");
+    fgets(buf, 100, stdin);
+    k = sendto(sock_desc, buf, strlen(buf), 0, (struct sockaddr *)&client, sizeof(client)); 
+    if (k < 0) 
+    { 
+        perror("Error in sending");
+        exit(1);
+    }
+    close(sock_desc);
+    return 0;
+}
+
+
+
+
+
+UDP SERVER ONEWAY
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+int main() 
+{
+    char buf[100];
+    int k, len;
+    int sock_desc;
+    struct sockaddr_in server, client;
+    sock_desc = socket(AF_INET, SOCK_DGRAM, 0); 
+    if (sock_desc < 0) 
+    { 
+        printf("Error in socket creation");
+        exit(1);
+    }
+    server.sin_family = AF_INET;
+    server.sin_addr.s_addr = INADDR_ANY;
+    server.sin_port = htons(3003); 
+    k = bind(sock_desc, (struct sockaddr *)&server, sizeof(server));
+    if (k < 0) 
+    { 
+        printf("Error in binding");
+        exit(1);
+    }
+    len = sizeof(client);
+    k = recvfrom(sock_desc, buf, 100, 0, (struct sockaddr *)&client, &len); 
+    if (k < 0) 
+    { 
+        printf("Error in receiving");
+        exit(1);
+    }
+    printf("Message recieved: %s\n", buf);
+    close(sock_desc); 
+    return 0;
+}
+
+
+
+BIDIR TCP SERVER
+
+#include "sys/socket.h"
+#include "netinet/in.h"
+#include "stdio.h"
+#include "stdlib.h"
+#include "unistd.h"
+#include "string.h"
+int main()
+{
+	char buf[100];
+	int k,i=0;
+	socklen_t len;
+	int sock_desc,temp_sock_desc;
+	struct sockaddr_in server,client;
+	sock_desc=socket(AF_INET,SOCK_STREAM,0);
+	
+	if(sock_desc == -1)
+	{
+		printf("Error in socketcreation");
+	}
+	
+	server.sin_family=AF_INET;
+	server.sin_addr.s_addr=INADDR_ANY;
+	server.sin_port=3003;
+	
+	k=bind(sock_desc,(struct sockaddr*)&server,sizeof(server));
+	if(k== -1)
+	{
+		printf("Error in binding");
+	}
+	k=listen(sock_desc,5);
+	
+	if(k== -1)
+	{
+		printf("Error in listening");
+	}
+	
+	len=sizeof(client);
+	temp_sock_desc=accept(sock_desc, (struct sockaddr*)&client,&len);
+	
+	if(temp_sock_desc == -1)
+	{
+		printf("Error in temporary socket creation");
+	}
+	k=recv(temp_sock_desc,buf,100,0);
+	if(k== -1)
+	{
+		printf("Error in receiving");
+	}
+	printf("Message got from client is: %s",buf);
+	
+	printf("Enter a message to send to client: ");
+	fgets(buf,100,stdin);
+	k =  send(temp_sock_desc,buf,strlen(buf),0);
+	if (k == -1)
+	{
+		printf("Error in sending:");
+		return -1;
+	}	
+	//close(temp_sock_desc);
+	return 0;
+}
+
+
+BIDIR TCP CLIENT
+
+#include "sys/socket.h"
+#include "netinet/in.h"
+#include "stdio.h"
+#include "stdlib.h"
+#include "string.h"
+#include "unistd.h"
+int main()
+{
+	char buf[100];
+	int k;
+	int sock_desc;
+	struct sockaddr_in client;
+	sock_desc=socket(AF_INET,SOCK_STREAM,0);
+	if(sock_desc== -1)
+		printf("Error in socket creation");
+	
+	client.sin_family=AF_INET;
+	client.sin_addr.s_addr=INADDR_ANY;
+	client.sin_port=3003;
+	
+	k=connect(sock_desc,(struct sockaddr*)&client,sizeof(client));
+	if(k== -1)
+		printf("Error in connecting to server");
+	printf("\nEnter data to be send: ");
+	fgets(buf,100,stdin);
+	k=send(sock_desc,buf,100,0);	
+	if(sock_desc == -1)
+	{
+		printf("Error in temporary socket creation");
+	}
+	k=recv(sock_desc,buf,100,0);
+	if(k== -1)
+	{
+		printf("Error in receiving");
+	}
+	printf("Message got from server: %s",buf);
+
+	//close(sock_desc);
+	return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+TCP MULTICHAT SERVER
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <pthread.h>
+
+pthread_mutex_t mutex;
+int clients[20];
+int n = 0;
+
+void sendtoall(char *msg, int curr) {
+    int i;
+    pthread_mutex_lock(&mutex);
+    for (i = 0; i < n; i++) {
+        if (clients[i] != curr) {
+            if (send(clients[i], msg, strlen(msg), 0) < 0) {
+                printf("sending failure \n");
+                continue;
+            }
+        }
+    }
+    pthread_mutex_unlock(&mutex);
+}
+
+void *recvmg(void *client_sock) {
+    int sock = *((int *)client_sock);
+    char msg[500];
+    int len;
+    while ((len = recv(sock, msg, 500, 0)) > 0) {
+        msg[len] = '\0';
+        sendtoall(msg, sock);
+        fputs(msg, stdout);
+    }
+    return NULL;
+}
+
+int main() {
+    struct sockaddr_in ServerIp;
+    pthread_t recvt;
+    int sock = 0, Client_sock = 0;
+    ServerIp.sin_family = AF_INET;
+    ServerIp.sin_port = htons(1234);
+    ServerIp.sin_addr.s_addr = inet_addr("127.0.0.1");
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (bind(sock, (struct sockaddr *)&ServerIp, sizeof(ServerIp)) == -1)
+        printf("cannot bind, error!! \n");
+    else
+        printf("Server Started\n");
+    if (listen(sock, 20) == -1)
+        printf("listening failed \n");
+    while (1) {
+        if ((Client_sock = accept(sock, (struct sockaddr *)NULL, NULL)) < 0)
+            printf("accept failed  \n");
+        pthread_mutex_lock(&mutex);
+        clients[n] = Client_sock;
+        n++;
+        pthread_create(&recvt, NULL, (void *)recvmg, &Client_sock);
+        pthread_mutex_unlock(&mutex);
+    }
+    return 0;
+}
+
+
+TCP MULTICHAT CLIENT
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <pthread.h>
+
+char msg[500];
+
+void *recvmg(void *my_sock) {
+    int sock = *((int *)my_sock);
+    int len;
+    while ((len = recv(sock, msg, 500, 0)) > 0) {
+        msg[len] = '\0';
+        fputs(msg, stdout);
+    }
+    return NULL;
+}
+
+int main(int argc, char *argv[]) {
+    pthread_t recvt;
+    int len;
+    int sock;
+    char send_msg[500];
+    struct sockaddr_in ServerIp;
+    char client_name[100];
+    strcpy(client_name, argv[1]);
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    ServerIp.sin_port = htons(1234);
+    ServerIp.sin_family = AF_INET;
+    ServerIp.sin_addr.s_addr = inet_addr("127.0.0.1");
+    if ((connect(sock, (struct sockaddr *)&ServerIp, sizeof(ServerIp))) == -1)
+        printf("\n connection to socket failed \n");
+    pthread_create(&recvt, NULL, (void *)recvmg, &sock);
+    while (fgets(msg, 500, stdin) > 0) {
+        strcpy(send_msg, client_name);
+        strcat(send_msg, ":");
+        strcat(send_msg, msg);
+        len = write(sock, send_msg, strlen(send_msg));
+        if (len < 0)
+            printf("\n message not sent \n");
+    }
+    pthread_join(recvt, NULL);
+    close(sock);
+    return 0;
+}
+
+/*OUTPUT
+./client 10
+
+
+
+
+
+
+
+
+
+
+
+
+
+UDP TWO WAY CLIENT 
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+
+int main() {
+    char buf[1000], recv_buf[1000];
+    int k;
+    int sock_desc;
+    struct sockaddr_in server;
+    socklen_t len;
+
+    sock_desc = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock_desc < 0) {
+        perror("Error in socket creation");
+        exit(1);
+    }
+
+    server.sin_family = AF_INET;
+    server.sin_port = htons(3003);
+
+    if (inet_pton(AF_INET, "127.0.0.1", &server.sin_addr) <= 0) {
+        perror("Invalid address");
+        exit(1);
+    }
+
+    printf("\nEnter data to be sent: ");
+    fgets(buf, sizeof(buf), stdin);
+
+    k = sendto(sock_desc, buf, strlen(buf), 0, (struct sockaddr *)&server, sizeof(server)); 
+    if (k < 0) {
+        perror("Error in sending");
+        exit(1);
+    }
+
+    len = sizeof(server);
+    k = recvfrom(sock_desc, recv_buf, sizeof(recv_buf), 0, (struct sockaddr *)&server, &len);
+    if (k < 0) {
+        perror("Error in receiving response");
+        exit(1);
+    }
+    printf("Server reply: %s\n", recv_buf);
+
+    close(sock_desc);
+    return 0;
+}
+
+
+UDP TWO WAY SERVER
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+int main() {
+    char buf[1000], reply[1000];
+    int k;
+    socklen_t len;
+    int sock_desc;
+    struct sockaddr_in server, client;
+
+    sock_desc = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock_desc < 0) {
+        perror("Error in socket creation");
+        exit(1);
+    }
+
+    server.sin_family = AF_INET;
+    server.sin_addr.s_addr = INADDR_ANY;
+    server.sin_port = htons(3003);
+
+    k = bind(sock_desc, (struct sockaddr *)&server, sizeof(server));
+    if (k < 0) {
+        perror("Error in binding");
+        exit(1);
+    }
+
+    len = sizeof(client);
+    k = recvfrom(sock_desc, buf, sizeof(buf), 0, (struct sockaddr *)&client, &len);
+    if (k < 0) {
+        perror("Error in receiving");
+        exit(1);
+    }
+
+    buf[k] = '\0';
+    printf("Client says: %s\n", buf);
+
+    printf("Enter reply to client: ");
+    fgets(reply, sizeof(reply), stdin);
+
+    k = sendto(sock_desc, reply, strlen(reply), 0, (struct sockaddr *)&client, len);
+    if (k < 0) {
+        perror("Error in sending reply");
+        exit(1);
+    }
+
+    close(sock_desc);
+    return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
