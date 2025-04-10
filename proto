@@ -1,0 +1,550 @@
+SAW SERVER
+
+#include "sys/socket.h"
+#include "netinet/in.h"
+#include "stdio.h"
+#include "stdlib.h"
+#include "unistd.h"
+#include "string.h"
+#include "time.h"
+int main()
+{
+	char buf[100];
+	int k,i=0;
+	socklen_t len;
+	int sock_desc,temp_sock_desc;
+	struct sockaddr_in server,client;
+	sock_desc=socket(AF_INET,SOCK_STREAM,0);
+	
+	if(sock_desc == -1)
+	{
+		printf("Error in socketcreation");
+	}
+	
+	server.sin_family=AF_INET;
+	server.sin_addr.s_addr=INADDR_ANY;
+	server.sin_port=3003;
+	
+	k=bind(sock_desc,(struct sockaddr*)&server,sizeof(server));
+	if(k== -1)
+	{
+		printf("Error in binding");
+	}
+	k=listen(sock_desc,5);
+	
+	if(k== -1)
+	{
+		printf("Error in listening");
+	}
+	
+	len=sizeof(client);
+	temp_sock_desc=accept(sock_desc, (struct sockaddr*)&client,&len);
+	
+	if(temp_sock_desc == -1)
+	{
+		printf("Error in temporary socket creation");
+	}
+	    // ---- SAW Logic Starts Here ----
+    int expected_frame = 0;
+    int drop_frame = 2;
+    int timeout_frame = 3;
+    int dropped_once = 0; 
+    char ack[10];
+
+    while (1) {
+        bzero(buf, sizeof(buf));
+        k = recv(temp_sock_desc, buf, sizeof(buf), 0);
+
+        if (k <= 0) break; 
+
+        printf("Received: %s\n", buf);
+
+        if (strstr(buf, "Frame") != NULL) {
+            int frame_num;
+            sscanf(buf, "Frame %d", &frame_num);
+
+            if (frame_num == drop_frame && dropped_once == 0) {
+                printf("Simulating DROP for Frame %d\n", frame_num);
+                dropped_once = 1;
+                continue;  
+            }
+
+            if (frame_num == timeout_frame) {
+                printf("Simulating TIMEOUT for Frame %d\n", frame_num);
+                sleep(5);
+            }
+
+            if (frame_num == expected_frame) {
+                sprintf(ack, "%d", expected_frame % 2);
+                send(temp_sock_desc, ack, strlen(ack), 0);
+                printf("Sent ACK: %s\n", ack);
+                expected_frame++;
+            } else {
+     
+                printf("Unexpected Frame %d, expected %d. Ignoring.\n", frame_num, expected_frame);
+            }
+        }
+    }
+
+    close(temp_sock_desc);
+    close(sock_desc);
+    return 0;
+}
+
+
+
+
+SAW CLIENT
+
+
+
+#include "sys/socket.h"
+#include "netinet/in.h"
+#include "stdio.h"
+#include "stdlib.h"
+#include "string.h"
+#include "unistd.h"
+#include "sys/time.h"
+#include "arpa/inet.h"
+int main()
+{
+	char buf[100];
+	int k;
+	int sock_desc;
+	struct sockaddr_in client;
+	sock_desc=socket(AF_INET,SOCK_STREAM,0);
+	if(sock_desc== -1)
+		printf("Error in socket creation");
+	
+	client.sin_family=AF_INET;
+	client.sin_addr.s_addr=INADDR_ANY;
+	client.sin_port=3003;
+	
+	k=connect(sock_desc,(struct sockaddr*)&client,sizeof(client));
+	if(k== -1)
+		printf("Error in connecting to server");
+	  // ---- SAW Logic Starts Here ----
+    int frame = 0, ack_bit = 0;
+    char ack[10];
+
+    while (frame < 5) {
+        sprintf(buf, "Frame %d", frame);
+        send(sock_desc, buf, strlen(buf), 0);
+        printf("Sent: %s\n", buf);
+
+        fd_set readfds;
+        struct timeval timeout;
+        FD_ZERO(&readfds);
+        FD_SET(sock_desc, &readfds);
+        timeout.tv_sec = 3;
+        timeout.tv_usec = 0;
+
+        int activity = select(sock_desc + 1, &readfds, NULL, NULL, &timeout);
+
+        if (activity > 0 && FD_ISSET(sock_desc, &readfds)) {
+            bzero(ack, sizeof(ack));
+            recv(sock_desc, ack, sizeof(ack), 0);
+            int ack_num = atoi(ack);
+            printf("Received ACK: %s\n", ack);
+
+            if (ack_num == ack_bit) {
+                ack_bit = 1 - ack_bit;
+                frame++;
+            } else {
+                printf("Wrong ACK received, resending Frame %d\n", frame);
+            }
+        } else {
+            printf("Timeout: No ACK received for Frame %d, resending...\n", frame);
+        }
+    }
+
+    close(sock_desc);
+    return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+GBN SERVER
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <time.h>
+
+int main() {
+    int sock_desc, temp_sock_desc, k;
+    socklen_t len;
+    struct sockaddr_in server, client;
+    char buf[100];
+
+    // Create socket
+    sock_desc = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock_desc == -1) {
+        printf("Socket creation error\n");
+        exit(1);
+    }
+
+    server.sin_family = AF_INET;
+    server.sin_addr.s_addr = INADDR_ANY;
+    server.sin_port = htons(3003);
+
+    // Bind socket
+    k = bind(sock_desc, (struct sockaddr*)&server, sizeof(server));
+    if (k == -1) {
+        printf("Binding error\n");
+        exit(1);
+    }
+
+    // Listen
+    k = listen(sock_desc, 5);
+    if (k == -1) {
+        printf("Listening error\n");
+        exit(1);
+    }
+
+    // Accept connection
+    len = sizeof(client);
+    temp_sock_desc = accept(sock_desc, (struct sockaddr*)&client, &len);
+    if (temp_sock_desc == -1) {
+        printf("Accept error\n");
+        exit(1);
+    }
+
+    //  GBN Logic Starts Here
+    printf("Connected. Receiving GBN frames...\n");
+    srand(time(NULL)); // Used for simulating drops
+    int expected_sn = 0;
+
+    while (1) {
+        int bytes_received = recv(temp_sock_desc, buf, sizeof(buf), 0);
+        if (bytes_received <= 0)
+            break;
+
+        buf[bytes_received] = '\0';
+        printf("Received: %s\n", buf);
+
+        // Simulate frame drop
+        if (rand() % 10 == 0) {
+            printf("Simulated Drop (No ACK sent)\n");
+            continue;
+        }
+
+        int frame_no;
+        sscanf(buf, "Frame %d", &frame_no);
+
+        if (frame_no == expected_sn) {
+            printf("Accepted Frame %d. Sending ACK.\n", frame_no);
+            send(temp_sock_desc, "ACK", 3, 0);
+            expected_sn++;
+        } else {
+            printf("Unexpected Frame. Ignoring.\n");
+        }
+    }
+
+    close(temp_sock_desc);
+    close(sock_desc);
+    return 0;
+}
+
+
+
++++++++++++++++++++++++++++=    
+GBN CLIENT 
+
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <sys/time.h>
+
+#define TIMEOUT 3
+
+int main() {
+    int sock_desc, k;
+    struct sockaddr_in client;
+    char buf[100];
+
+    // Create socket
+    sock_desc = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock_desc == -1) {
+        printf("Socket creation error\n");
+        exit(1);
+    }
+
+    client.sin_family = AF_INET;
+    client.sin_addr.s_addr = INADDR_ANY;
+    client.sin_port = htons(3003);
+
+    // Connect to server
+    k = connect(sock_desc, (struct sockaddr*)&client, sizeof(client));
+    if (k == -1) {
+        printf("Connection error\n");
+        exit(1);
+    }
+
+    //  GBN Logic Starts Here
+    struct timeval tv;
+    tv.tv_sec = TIMEOUT;
+    tv.tv_usec = 0;
+    setsockopt(sock_desc, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+
+    int total_frames, sn = 0;
+    printf("Enter number of frames to send: ");
+    scanf("%d", &total_frames);
+
+    while (sn < total_frames) {
+        sprintf(buf, "Frame %d", sn);
+        printf("Sending: %s\n", buf);
+        send(sock_desc, buf, strlen(buf), 0);
+
+        int bytes_received = recv(sock_desc, buf, sizeof(buf), 0);
+        if (bytes_received > 0) {
+            buf[bytes_received] = '\0';
+            if (strcmp(buf, "ACK") == 0) {
+                printf("Received ACK. Moving to next.\n");
+                sn++;
+            }
+        } else {
+            printf("Timeout. Resending Frame %d.\n", sn);
+        }
+        sleep(1);
+    }
+
+    printf("All frames sent.\n");
+    close(sock_desc);
+    return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+SR SERVER
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <time.h>
+
+#define MAX 80
+#define PORT 8080
+#define SA struct sockaddr
+
+struct timeval timeout;
+
+int main() {
+    int sockfd, connfd, len, f, c, ack, next = 0;
+    char buff[MAX];
+    struct sockaddr_in servaddr, cli;
+    
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd == -1) {
+        printf("Socket creation failed\n");
+        exit(0);
+    }
+    
+    bzero(&servaddr, sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    servaddr.sin_port = htons(PORT);
+    
+    if ((bind(sockfd, (SA *)&servaddr, sizeof(servaddr))) != 0) {
+        printf("socket bind failed\n");
+        exit(0);
+    }
+    
+    if ((listen(sockfd, 5)) != 0) {
+        printf("Listen failed\n");
+        exit(0);
+    }
+    
+    len = sizeof(cli);
+    connfd = accept(sockfd, (SA *)&cli, &len);
+    if (connfd < 0) {
+        printf("Server accept failed\n");
+        exit(0);
+    }
+    
+    while (1) {
+        sleep(1);
+        bzero(buff, MAX);
+        recv(connfd, buff, MAX, 0);
+        if (strcmp("Exit", buff) == 0) {
+            printf("Exit\n");
+            break;
+        }
+        f = atoi(buff);
+        if (f != next) {
+            printf("Fr Dis\nAck Send: %d\n", ack);
+            bzero(buff, MAX);
+            snprintf(buff, sizeof(buff), "%d", ack);
+            send(connfd, buff, sizeof(buff), 0);
+            continue;
+        }
+        c = rand() % 3;
+        switch (c) {
+            case 0:
+                break;
+            case 1:
+                ack = f;
+                sleep(2);
+                printf("Fr Rec: %d\nAck Send: %d\n", f, ack);
+                bzero(buff, MAX);
+                snprintf(buff, sizeof(buff), "%d", ack);
+                send(connfd, buff, sizeof(buff), 0);
+                next = ack + 1;
+                break;
+            case 2:
+                ack = f;
+                printf("Fr Rec: %d\nAck Send: %d\n", f, ack);
+                bzero(buff, MAX);
+                snprintf(buff, sizeof(buff), "%d", ack);
+                send(connfd, buff, sizeof(buff), 0);
+                next = ack + 1;
+                break;
+        }
+    }
+    
+    close(sockfd);
+    return 0;
+}
+
+
+
+SR CLIENT
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <time.h>
+
+#define MAX 80
+#define PORT 8080
+#define SA struct sockaddr
+
+struct timeval timeout;
+
+int main() {
+    int sockfd, f, w, ack, i = 0, n, k, w1 = 0, w2, j, flag = 0;
+    char buff[MAX];
+    struct sockaddr_in servaddr;
+    
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd == -1) {
+        printf("Socket creation failed\n");
+        exit(0);
+    }
+    
+    bzero(&servaddr, sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    servaddr.sin_port = htons(PORT);
+    
+    timeout.tv_sec = 3;
+    timeout.tv_usec = 0;
+    if (connect(sockfd, (SA *)&servaddr, sizeof(servaddr)) != 0) {
+        printf("Connection failed\n");
+        exit(0);
+    }
+    
+    printf("No. of frames: ");
+    scanf("%d", &f);
+    printf("Window size: ");
+    scanf("%d", &w);
+    w2 = w - 1;
+    
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&timeout, sizeof(timeout)) < 0) {
+        perror("setsockopt failed");
+    }
+    
+    for (i = 0; i < f && i <= w2; i++) {
+        bzero(buff, sizeof(buff));
+        snprintf(buff, sizeof(buff), "%d", i);
+        k = send(sockfd, buff, sizeof(buff), 0);
+        printf("Fr Send: %d\n", i);
+    }
+    
+    while (1) {
+        if (w2 - w1 != w - 1 && flag == 0 && i != f) {
+            bzero(buff, sizeof(buff));
+            snprintf(buff, sizeof(buff), "%d", i);
+            k = send(sockfd, buff, sizeof(buff), 0);
+            printf("Fr Send: %d\n", i);
+            w2++;
+            i++;
+        }
+        
+        flag = 0;
+        bzero(buff, sizeof(buff));
+        n = recv(sockfd, buff, MAX, 0);
+        ack = atoi(buff);
+        
+        if (n > 0) {
+            if (ack + 1 == f) {
+                printf("Ack Rec: %d\nExit\n", ack);
+                bzero(buff, sizeof(buff));
+                strcpy(buff, "Exit");
+                k = send(sockfd, buff, sizeof(buff), 0);
+                break;
+            }
+            if (ack == w1) {
+                w1++;
+                printf("Ack Rec: %d\n", ack);
+            }
+        } else {
+            printf("Ack Not Rec: %d\nResend\n", w1);
+            for (j = w1; j < f && j < w1 + w; j++) {
+                bzero(buff, sizeof(buff));
+                snprintf(buff, sizeof(buff), "%d", j);
+                k = send(sockfd, buff, sizeof(buff), 0);
+                printf("Fr Send: %d\n", j);
+            }
+            flag = 1;
+        }
+    }
+    
+    close(sockfd);
+    return 0;
+}
+
+
